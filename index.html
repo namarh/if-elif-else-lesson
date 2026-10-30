@@ -1,0 +1,1298 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>الجمل الشرطية في بايثون</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&family=JetBrains+Mono:wght@400;700&family=Reem+Kufi:wght@500;700&display=swap">
+<style>
+/* ===========================================
+   DESIGN PLAN (single committed look: classroom chalkboard + graph paper)
+   Layout: fixed 1920×1080 stage, RTL text; code panels always LTR on the left,
+   explanation/activities on the right. Colors carry meaning:
+   amber = condition, green = True path, coral = False path.
+   =========================================== */
+:root {
+    --board: #0f2429;          /* chalkboard slate */
+    --board-2: #15323a;        /* raised surface */
+    --panel: #091a1e;          /* code editor */
+    --chalk: #eef2ea;          /* main text */
+    --chalk-dim: #9fb7b2;      /* secondary text */
+    --grid: rgba(238, 242, 234, 0.055);
+    --rule: rgba(238, 242, 234, 0.14);
+    --cond: #f3b23a;           /* condition / keywords */
+    --true: #5ad19a;           /* صواب */
+    --false: #ff7b6b;          /* خطأ */
+    --fn: #8cc8ff;             /* built-in functions */
+    --str: #c6e48b;            /* strings */
+    --num: #f7a072;            /* numbers */
+
+    --font-display: 'Reem Kufi', 'IBM Plex Sans Arabic', 'Segoe UI', sans-serif;
+    --font-body: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+    --font-code: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --stage-bg: #071518;
+    --slide-bg: var(--board);
+    color-scheme: dark;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ===========================================
+   FIXED 16:9 STAGE — viewport-base.css (full)
+   =========================================== */
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--stage-bg, #000); }
+.deck-viewport { position: fixed; inset: 0; overflow: hidden; background: var(--stage-bg, #000); }
+.deck-stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; background: var(--slide-bg, #fff); }
+.slide { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; display: block; visibility: hidden; opacity: 0; pointer-events: none; background: var(--slide-bg, #fff); }
+.slide.active, .slide.visible { visibility: visible; opacity: 1; pointer-events: auto; z-index: 1; }
+img, video, canvas, svg { max-width: 100%; max-height: 100%; }
+.deck-controls { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 1000; }
+@media print {
+    html, body { width: 1920px; height: auto; overflow: visible; background: #fff; }
+    .deck-viewport { position: static; overflow: visible; background: #fff; }
+    .deck-stage { position: static; width: auto; height: auto; transform: none !important; background: none; }
+    .slide { position: relative; display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; width: 1920px; height: 1080px; break-after: page; page-break-after: always; }
+    .slide:last-child { break-after: auto; page-break-after: auto; }
+    .deck-controls { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+}
+
+/* ===========================================
+   BASE TYPE + SLIDE FRAME
+   =========================================== */
+body { font-family: var(--font-body); color: var(--chalk); background: var(--stage-bg); }
+.slide {
+    direction: rtl;
+    color: var(--chalk);
+    background-color: var(--board);
+    background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+        radial-gradient(ellipse at 85% 0%, rgba(243,178,58,0.07), transparent 55%),
+        radial-gradient(ellipse at 0% 100%, rgba(90,209,154,0.06), transparent 50%);
+    background-size: 48px 48px, 48px 48px, 100% 100%, 100% 100%;
+    font-size: 34px;
+    line-height: 1.6;
+    transition: opacity .45s ease;
+}
+.frame { position: absolute; inset: 0; padding: 64px 96px 120px; display: flex; flex-direction: column; gap: 36px; }
+
+.head { display: flex; flex-direction: column; gap: 10px; }
+.eyebrow { display: flex; align-items: center; gap: 20px; font-size: 25px; color: var(--chalk-dim); letter-spacing: .02em; }
+.chip {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 4px 20px; border-radius: 999px;
+    border: 1.5px solid var(--cond); color: var(--cond);
+    font-size: 23px; font-weight: 500;
+}
+.chip.g { border-color: var(--true); color: var(--true); }
+.chip.r { border-color: var(--false); color: var(--false); }
+h1, h2 { font-family: var(--font-display); font-weight: 700; text-wrap: balance; line-height: 1.25; }
+h2 { font-size: 70px; }
+h3 { font-family: var(--font-display); font-weight: 500; font-size: 40px; line-height: 1.3; }
+.lead { font-size: 34px; color: var(--chalk-dim); max-width: 1400px; }
+.muted { color: var(--chalk-dim); }
+.k { color: var(--cond); font-family: var(--font-code); direction: ltr; unicode-bidi: isolate; }
+.t { color: var(--true); } .f { color: var(--false); } .c { color: var(--cond); }
+code.il { font-family: var(--font-code); direction: ltr; unicode-bidi: isolate; background: rgba(238,242,234,.08); padding: 0 10px; border-radius: 6px; font-size: .9em; }
+
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 72px; flex: 1; min-height: 0; }
+.cols.w6040 { grid-template-columns: 1.05fr .95fr; }
+.col { display: flex; flex-direction: column; gap: 28px; min-width: 0; min-height: 0; }
+.col.center { justify-content: center; }
+
+/* ===========================================
+   CODE EDITOR + TERMINAL
+   Code is always LTR; Arabic strings are isolated RTL runs.
+   =========================================== */
+.editor { background: var(--panel); border: 1.5px solid var(--rule); border-radius: 14px; overflow: hidden; direction: ltr; box-shadow: 0 24px 60px rgba(0,0,0,.35); }
+.editor .bar { display: flex; align-items: center; gap: 12px; padding: 12px 22px; border-bottom: 1px solid var(--rule); font-family: var(--font-code); font-size: 21px; color: var(--chalk-dim); }
+.editor .bar i { width: 13px; height: 13px; border-radius: 50%; background: var(--rule); display: block; }
+.editor .bar span { margin-left: 10px; }
+.editor .bar b { margin-left: auto; font-weight: 400; font-family: var(--font-body); direction: rtl; }
+pre.code { font-family: var(--font-code); font-size: 33px; line-height: 1.62; padding: 20px 0; white-space: pre; overflow-x: auto; color: var(--chalk); tab-size: 4; }
+pre.code.sm { font-size: 29px; }
+pre.code.xs { font-size: 26px; }
+.ln { display: block; padding: 0 28px 0 0; transition: background .3s; border-left: 5px solid transparent; }
+.ln .no { display: inline-block; width: 64px; text-align: right; padding-right: 22px; color: rgba(159,183,178,.45); user-select: none; }
+.ln.hot { background: rgba(90,209,154,.13); border-left-color: var(--true); }
+.ln.skip { opacity: .38; }
+.ln.bug { background: rgba(255,123,107,.16); border-left-color: var(--false); }
+.ind { display: inline-block; position: relative; white-space: pre; }
+.ind::before { content: ""; position: absolute; left: 2px; top: 8%; bottom: 8%; border-left: 2px dotted rgba(243,178,58,.45); }
+.tk-kw { color: var(--cond); font-weight: 700; }
+.tk-fn { color: var(--fn); }
+.tk-str { color: var(--str); }
+.tk-str.ar, .ar-ph { unicode-bidi: isolate; direction: rtl; font-family: var(--font-body); font-weight: 500; }
+.ar-ph { color: var(--chalk-dim); }
+.tk-num { color: var(--num); }
+.tk-op { color: #e8b8ff; }
+
+.term { background: #050f11; border: 1.5px dashed var(--rule); border-radius: 14px; padding: 18px 28px; min-height: 120px; font-family: var(--font-body); font-size: 31px; position: relative; }
+.term::before { content: "الناتج"; position: absolute; top: -18px; right: 24px; background: var(--board); padding: 0 12px; font-size: 21px; color: var(--chalk-dim); }
+.term .wait { color: var(--chalk-dim); font-size: 26px; }
+.term .o { display: block; opacity: 0; transform: translateY(8px); transition: all .4s var(--ease); }
+.term .o.err { direction: ltr; text-align: left; font-family: var(--font-code); color: var(--false); font-size: 25px; }
+.term .o.in { color: var(--chalk-dim); }
+.term .o.in b { color: var(--fn); font-weight: 400; font-family: var(--font-code); }
+.term.ran .o { opacity: 1; transform: none; }
+.term.ran .wait { display: none; }
+
+/* ===========================================
+   BUTTONS, QUIZ, FEEDBACK
+   =========================================== */
+.btn { font-family: var(--font-body); font-size: 28px; font-weight: 700; color: var(--board); background: var(--true); border: 0; border-radius: 12px; padding: 10px 34px; cursor: pointer; display: inline-flex; align-items: center; gap: 12px; transition: transform .2s var(--ease), filter .2s; }
+.btn:hover { filter: brightness(1.08); transform: translateY(-2px); }
+.btn:focus-visible, .opt:focus-visible, input:focus-visible, .ln:focus-visible { outline: 3px solid var(--cond); outline-offset: 3px; }
+.btn.ghost { background: transparent; color: var(--chalk); border: 1.5px solid var(--rule); font-weight: 500; }
+.btn.amber { background: var(--cond); }
+.row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+
+.quiz { display: flex; flex-direction: column; gap: 18px; }
+.quiz .q { font-weight: 700; font-size: 34px; }
+.opts { display: grid; gap: 14px; }
+.opts.two { grid-template-columns: 1fr 1fr; }
+.opts.three { grid-template-columns: repeat(3, 1fr); }
+.opt { font-family: var(--font-body); font-size: 29px; text-align: right; color: var(--chalk); background: var(--board-2); border: 1.5px solid var(--rule); border-radius: 12px; padding: 14px 24px; cursor: pointer; transition: all .25s var(--ease); line-height: 1.45; }
+.opt:hover:not(:disabled) { border-color: var(--cond); transform: translateX(-4px); }
+.opt.right { border-color: var(--true); background: rgba(90,209,154,.16); }
+.opt.wrong { border-color: var(--false); background: rgba(255,123,107,.12); opacity: .7; text-decoration: line-through; text-decoration-color: var(--false); }
+.opt:disabled { cursor: default; }
+.fb { font-size: 28px; line-height: 1.55; min-height: 44px; padding-right: 20px; border-right: 5px solid transparent; transition: all .3s; }
+.fb.ok { border-right-color: var(--true); }
+.fb.no { border-right-color: var(--false); }
+.fb strong.ok { color: var(--true); } .fb strong.no { color: var(--false); }
+.shake { animation: shake .4s; }
+@keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+
+.check { display: flex; flex-direction: column; gap: 16px; }
+.check .row input { font-family: var(--font-code); font-size: 34px; width: 260px; padding: 8px 20px; background: var(--panel); color: var(--chalk); border: 1.5px solid var(--rule); border-radius: 12px; direction: ltr; text-align: center; }
+
+/* Cards used by type/rule grids */
+.card { background: var(--board-2); border: 1.5px solid var(--rule); border-radius: 18px; padding: 28px 32px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card .editor { box-shadow: none; }
+.card p { font-size: 29px; color: var(--chalk-dim); line-height: 1.5; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; flex: 1; min-height: 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; counter-reset: s; }
+.step { border-top: 4px solid var(--cond); padding-top: 18px; display: flex; flex-direction: column; gap: 6px; }
+.step b { font-family: var(--font-display); font-size: 40px; }
+.step b::before { counter-increment: s; content: counter(s) " · "; color: var(--cond); font-family: var(--font-code); font-size: 30px; }
+.step span { font-size: 27px; color: var(--chalk-dim); line-height: 1.5; }
+
+.list { list-style: none; display: flex; flex-direction: column; gap: 22px; }
+.list li { display: flex; gap: 22px; align-items: baseline; }
+.list li::before { content: ""; flex: none; width: 16px; height: 16px; transform: rotate(45deg) translateY(-4px); background: var(--cond); }
+.list.tf li.t-row::before { background: var(--true); }
+.list.tf li.f-row::before { background: var(--false); }
+
+table.ops { width: 100%; border-collapse: collapse; font-size: 30px; }
+table.ops th { text-align: right; font-weight: 500; color: var(--chalk-dim); font-size: 24px; padding: 8px 18px; border-bottom: 1.5px solid var(--rule); }
+table.ops td { padding: 11px 18px; border-bottom: 1px solid var(--grid); }
+table.ops td.m { font-family: var(--font-code); direction: ltr; text-align: right; }
+.badge { font-family: var(--font-code); font-size: 24px; padding: 2px 16px; border-radius: 8px; font-weight: 700; }
+.badge.T { color: var(--true); background: rgba(90,209,154,.14); }
+.badge.F { color: var(--false); background: rgba(255,123,107,.14); }
+
+/* Flowcharts (inline SVG) */
+svg.fc { width: 100%; height: auto; overflow: visible; }
+.fc text { fill: var(--chalk); font-family: var(--font-body); font-size: 24px; text-anchor: middle; dominant-baseline: central; }
+.fc text.code { font-family: var(--font-code); font-size: 23px; direction: ltr; }
+.fc text.lbl { font-size: 21px; font-weight: 700; }
+.fc .shape { fill: var(--board-2); stroke: var(--chalk-dim); stroke-width: 2; }
+.fc .dia { fill: rgba(243,178,58,.16); stroke: var(--cond); stroke-width: 2.5; }
+.fc .io { fill: rgba(140,200,255,.12); stroke: var(--fn); stroke-width: 2; }
+.fc .proc { fill: rgba(247,160,114,.14); stroke: var(--num); stroke-width: 2; }
+.fc .wire { fill: none; stroke: var(--chalk-dim); stroke-width: 2.5; }
+.fc .yes .wire, .fc .yes .lbl { stroke: var(--true); fill: var(--true); }
+.fc .no .wire, .fc .no .lbl { stroke: var(--false); fill: var(--false); }
+.fc .yes .wire, .fc .no .wire { fill: none; }
+.fc .yes text.lbl, .fc .no text.lbl { stroke: none; }
+.fc .path { transition: opacity .35s; }
+.fc.pick .path.dim { opacity: .2; }
+
+/* Reveal animation on slide enter */
+.reveal { opacity: 0; transform: translateY(26px); transition: opacity .6s var(--ease), transform .6s var(--ease); }
+.slide.visible .reveal { opacity: 1; transform: none; }
+.slide.visible .reveal:nth-child(2) { transition-delay: .08s; }
+.slide.visible .reveal:nth-child(3) { transition-delay: .16s; }
+.slide.visible .reveal:nth-child(4) { transition-delay: .24s; }
+
+/* ===========================================
+   COVER
+   =========================================== */
+.cover .frame { flex-direction: row; align-items: center; gap: 60px; padding-bottom: 96px; }
+.cover .txt { flex: 1.15; display: flex; flex-direction: column; gap: 34px; }
+.cover h1 { font-size: 168px; line-height: 1.1; }
+.cover h1 em { font-style: normal; display: block; font-size: 112px; color: var(--cond); }
+.cover .by { display: flex; flex-direction: column; gap: 6px; border-right: 4px solid var(--cond); padding-right: 26px; font-size: 30px; }
+.cover .by span { color: var(--chalk-dim); font-size: 27px; }
+.cover .art { flex: 1; height: 860px; display: flex; align-items: center; justify-content: center; }
+.branch path { fill: none; stroke-width: 10; stroke-linecap: round; stroke-dasharray: 900; stroke-dashoffset: 900; }
+.slide.visible .branch path { animation: draw 1.6s var(--ease) forwards; }
+.slide.visible .branch path:nth-child(2) { animation-delay: .25s; }
+.slide.visible .branch path:nth-child(3) { animation-delay: .4s; }
+.slide.visible .branch path:nth-child(4) { animation-delay: .55s; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.branch .tag { opacity: 0; transition: opacity .6s 1.3s; }
+.slide.visible .branch .tag { opacity: 1; }
+.branch .tag text { font-family: var(--font-code); font-size: 46px; font-weight: 700; text-anchor: middle; dominant-baseline: central; fill: var(--board); }
+
+/* Scenario card on warm-up */
+.scenario { background: var(--board-2); border: 1.5px solid var(--rule); border-radius: 20px; padding: 36px 44px; display: flex; flex-direction: column; gap: 18px; font-size: 38px; }
+.scenario .r { display: flex; gap: 18px; align-items: baseline; }
+.scenario .r b { font-family: var(--font-display); min-width: 120px; }
+
+/* Slider (elif lab) */
+.lab { display: flex; flex-direction: column; gap: 18px; }
+.lab input[type=range] { width: 100%; accent-color: var(--cond); height: 34px; direction: ltr; }
+.lab .val { font-family: var(--font-code); font-size: 56px; color: var(--cond); direction: ltr; unicode-bidi: isolate; }
+.trace { font-size: 28px; line-height: 1.7; display: flex; flex-direction: column; gap: 6px; }
+.trace div { display: flex; gap: 14px; align-items: baseline; }
+
+/* Traffic light exit ticket */
+.lights { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.light { font-family: var(--font-body); font-size: 28px; color: var(--chalk); background: var(--board-2); border: 1.5px solid var(--rule); border-radius: 16px; padding: 22px 20px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 12px; transition: all .25s var(--ease); }
+.light i { width: 56px; height: 56px; border-radius: 50%; display: block; opacity: .55; transition: all .25s; }
+.light[data-c=g] i { background: var(--true); } .light[data-c=y] i { background: var(--cond); } .light[data-c=r] i { background: var(--false); }
+.light.on { border-color: var(--chalk); } .light.on i { opacity: 1; box-shadow: 0 0 34px currentColor; }
+.light[data-c=g].on i { color: var(--true); } .light[data-c=y].on i { color: var(--cond); } .light[data-c=r].on i { color: var(--false); }
+
+.bugs { list-style: none; display: flex; flex-direction: column; gap: 14px; font-size: 28px; }
+.bugs li { padding: 12px 22px; border-radius: 12px; background: var(--board-2); border: 1.5px dashed var(--rule); color: var(--chalk-dim); }
+.bugs li.found { border-style: solid; border-color: var(--false); color: var(--chalk); }
+
+.timer { font-family: var(--font-code); font-size: 40px; color: var(--cond); min-width: 120px; direction: ltr; }
+
+/* Editable text (E key) */
+.editing [data-ed] { outline: 2px dashed rgba(243,178,58,.6); outline-offset: 6px; }
+
+/* ===========================================
+   DECK CHROME (outside the stage)
+   =========================================== */
+.deck-controls { display: flex; align-items: center; gap: 10px; direction: rtl; background: rgba(9,26,30,.86); border: 1px solid var(--rule); border-radius: 999px; padding: 6px 10px; padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px) * 0); font-family: var(--font-body); color: var(--chalk); font-size: 14px; backdrop-filter: blur(8px); }
+.deck-controls button { font-family: inherit; font-size: 14px; color: var(--chalk); background: transparent; border: 0; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.deck-controls button:hover, .deck-controls button.on { background: rgba(238,242,234,.12); }
+.deck-controls button:focus-visible { outline: 2px solid var(--cond); }
+.deck-controls .count { font-variant-numeric: tabular-nums; color: var(--chalk-dim); min-width: 56px; text-align: center; }
+.deck-controls .score { color: var(--true); padding-inline: 8px; }
+.progress { position: fixed; top: env(safe-area-inset-top, 0px); right: 0; height: 4px; background: var(--cond); z-index: 1001; transition: width .4s var(--ease); }
+.notes { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); bottom: 76px; margin-inline: auto; max-width: 760px; z-index: 1000; direction: rtl; background: rgba(9,26,30,.95); border: 1px solid var(--cond); border-radius: 14px; padding: 14px 20px; font-family: var(--font-body); font-size: 15px; line-height: 1.7; color: var(--chalk); }
+.notes b { color: var(--cond); }
+.deck-controls button, .deck-controls .count { white-space: nowrap; }
+.deck-controls .sep { width: 1px; height: 18px; background: var(--rule); margin-inline: 2px; }
+.deck-controls button.playing { background: rgba(90,209,154,.18); color: var(--true); }
+.deck-controls .narr-bar { width: 64px; height: 4px; border-radius: 4px; background: rgba(238,242,234,.12); overflow: hidden; display: none; }
+.deck-controls .narr-bar.on { display: block; }
+.deck-controls .narr-bar i { display: block; height: 100%; width: 0; background: var(--true); margin-inline-start: auto; transition: width .2s linear; }
+</style>
+
+<div class="deck-viewport">
+<main class="deck-stage" id="deckStage" aria-live="polite">
+
+<!-- ======================= 1. COVER ======================= -->
+<section class="slide cover" data-note="ابدأ بسؤال: كم قرارًا اتخذت منذ استيقاظك اليوم؟ البرامج أيضًا تتخذ قرارات، وهذا موضوع درسنا.">
+  <div class="frame">
+    <div class="txt">
+      <div class="eyebrow reveal"><span class="chip">الوحدة الثالثة · الدرس الثاني</span><span>الصف الثاني المتوسط</span></div>
+      <h1 class="reveal" data-ed>الجمل الشرطية <em>في بايثون</em></h1>
+      <p class="lead reveal" data-ed>كيف يتخذ البرنامج قراره ويختار طريقًا من بين عدة طرق؟</p>
+      <div class="by reveal" data-ed>المعلم: يحيى الشمراني<span>متوسطة مكة المكرمة</span></div>
+    </div>
+    <div class="art">
+      <svg viewBox="0 0 700 760" class="branch" aria-hidden="true">
+        <path d="M350 730 L350 470" stroke="#9fb7b2"/>
+        <path d="M350 470 C350 330 560 300 560 140" stroke="#5ad19a"/>
+        <path d="M350 470 L350 120" stroke="#f3b23a"/>
+        <path d="M350 470 C350 330 140 300 140 140" stroke="#ff7b6b"/>
+        <g class="tag"><rect x="485" y="60" width="150" height="80" rx="40" fill="#5ad19a"/><text x="560" y="100">if</text></g>
+        <g class="tag"><rect x="265" y="40" width="170" height="80" rx="40" fill="#f3b23a"/><text x="350" y="80">elif</text></g>
+        <g class="tag"><rect x="60" y="60" width="160" height="80" rx="40" fill="#ff7b6b"/><text x="140" y="100">else</text></g>
+        <circle cx="350" cy="730" r="18" fill="#eef2ea"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 2. OBJECTIVES + STRATEGY ======================= -->
+<section class="slide" data-note="استراتيجية الحصة (PRIMM): اطلب من الطلاب دائمًا التوقع كتابةً أو شفهيًا قبل الضغط على زر التشغيل، ثم ناقش الفرق بين التوقع والناتج.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip">أهداف الدرس</span></div><h2 data-ed>في نهاية الحصة سأكون قادرًا على</h2></div>
+    <ul class="list reveal" style="font-size:36px">
+      <li data-ed>أفرّق بين أنواع الجمل الشرطية الثلاثة: <span class="k">if</span> و <span class="k">if…else</span> و <span class="k">if…elif…else</span></li>
+      <li data-ed>أكتب جملة شرطية صحيحة بالنقطتين <code class="il">:</code> والمسافة البادئة.</li>
+      <li data-ed>أتتبّع مقطعًا برمجيًا وأتوقع ناتجه قبل تشغيله.</li>
+      <li data-ed>أرسم المخطط الانسيابي لقرار بسيط ثم أكتب مقطعه البرمجي.</li>
+    </ul>
+    <div class="reveal" style="margin-top:auto; display:flex; flex-direction:column; gap:22px">
+      <div class="eyebrow"><span class="chip g">طريقتنا في الحصة</span><span>نكرر هذه الخطوات مع كل مثال</span></div>
+      <div class="steps">
+        <div class="step"><b>توقّع</b><span>اقرأ الكود وتوقّع ما سيظهر على الشاشة.</span></div>
+        <div class="step"><b>شغّل</b><span>نشغّل الكود ونقارن الناتج بتوقعك.</span></div>
+        <div class="step"><b>فسّر</b><span>لماذا نُفِّذ هذا السطر ولم يُنفَّذ ذاك؟</span></div>
+        <div class="step"><b>عدّل</b><span>غيّر قيمة واحدة وتوقّع من جديد.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 3. WARM-UP ======================= -->
+<section class="slide" data-note="تهيئة وتقويم قبلي: اطلب من كل طالب رفع أصابع (1 أو 2 أو 3) للنوع الذي يختاره قبل الضغط على الإجابة.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip">تهيئة</span><span>قرار من يومك</span></div><h2 data-ed>القرارات تبدأ بكلمة «إذا»</h2></div>
+    <div class="cols">
+      <div class="col center reveal">
+        <div class="scenario">
+          <div class="r"><b class="c">إذا</b><span data-ed>كان الجو ممطرًا</span></div>
+          <div class="r"><b class="t">← نفّذ</b><span data-ed>خذ المظلة معك</span></div>
+          <div class="r"><b class="f">وإلا</b><span data-ed>البس نظارتك الشمسية</span></div>
+        </div>
+      </div>
+      <div class="col center reveal">
+        <div class="quiz">
+          <p class="q">هذا القرار له طريقان. أيّ نوع من الجمل الشرطية يناسبه؟</p>
+          <div class="opts">
+            <button class="opt" data-why="جملة if البسيطة لها طريق واحد فقط: تنفّذ عند تحقق الشرط ولا تفعل شيئًا غير ذلك. هنا يوجد فعل في الحالتين.">جملة <span class="k">if</span> البسيطة</button>
+            <button class="opt" data-ok="1" data-why="يوجد شرط واحد وطريقان: طريق عند تحقق الشرط (المظلة) وطريق عند عدم تحققه (النظارة).">جملة <span class="k">if…else</span></button>
+            <button class="opt" data-why="نستخدم elif عندما يكون عندنا أكثر من شرط. هنا شرط واحد فقط: هل الجو ممطر؟">جملة <span class="k">if…elif…else</span></button>
+          </div>
+          <p class="fb" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 4. THREE TYPES ======================= -->
+<section class="slide" data-note="اربط كل نوع بمثال من الحياة: if البسيطة (إذا رن الجرس فقف)، if…else (المطر)، if…elif…else (تقدير الدرجة).">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip">المفهوم</span></div><h2 data-ed>أنواع الجمل الشرطية</h2></div>
+    <div class="grid3">
+      <div class="card reveal">
+        <h3>جملة <span class="k">if</span> البسيطة</h3>
+        <div class="editor"><pre class="code sm">if الشرط:
+    العبارة</pre></div>
+        <p data-ed>طريق واحد: تُنفَّذ العبارة إذا تحقق الشرط فقط.</p>
+      </div>
+      <div class="card reveal">
+        <h3>جملة <span class="k">if…else</span></h3>
+        <div class="editor"><pre class="code sm">if الشرط:
+    العبارة الأولى
+else:
+    العبارة الثانية</pre></div>
+        <p data-ed>طريقان: الأول عند تحقق الشرط، والثاني عند عدم تحققه.</p>
+      </div>
+      <div class="card reveal">
+        <h3>جملة <span class="k">if…elif…else</span></h3>
+        <div class="editor"><pre class="code sm">if الشرط الأول:
+    العبارة الأولى
+elif الشرط الثاني:
+    العبارة الثانية
+else:
+    العبارة الثالثة</pre></div>
+        <p data-ed>عدة شروط: يُنفَّذ أول فرع يتحقق شرطه فقط.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 5. WRITING RULES ======================= -->
+<section class="slide" data-note="الخطوط المنقطة داخل الكود تمثّل المسافة البادئة (4 مسافات). نبّه أن محرر IDLE يضيفها تلقائيًا بعد النقطتين.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip">قواعد اللغة</span></div><h2 data-ed>أربع قواعد لا ننساها عند كتابة الشرط</h2></div>
+    <div class="grid2 reveal" style="flex:1">
+      <div class="card"><h3><span class="c">١</span> النقطتان بعد الشرط</h3>
+        <div class="editor"><pre class="code sm">if grade >= 10:</pre></div>
+        <p data-ed>النقطتان <code class="il">:</code> ضروريتان بعد <span class="k">if</span> و <span class="k">elif</span> و <span class="k">else</span>.</p></div>
+      <div class="card"><h3><span class="c">٢</span> المسافة البادئة</h3>
+        <div class="editor"><pre class="code sm">if grade >= 10:
+    print("ناجح")</pre></div>
+        <p data-ed>4 مسافات قبل العبارات التابعة للشرط.</p></div>
+      <div class="card"><h3><span class="c">٣</span> الكلمات بحروف صغيرة</h3>
+        <div class="editor"><pre class="code sm">if   elif   else</pre></div>
+        <p data-ed>بايثون تفرّق بين الحروف: <code class="il">If</code> خطأ، و <code class="il">if</code> صحيح.</p></div>
+      <div class="card"><h3><span class="c">٤</span> المقارنة غير الإسناد</h3>
+        <div class="editor"><pre class="code sm">x = 5         # إسناد
+if x == 5:    # مقارنة</pre></div>
+        <p data-ed>داخل الشرط نستخدم <code class="il">==</code> وليس <code class="il">=</code>.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 6. OPERATORS ======================= -->
+<section class="slide" data-note="اطلب من الطلاب تغطية عمود النتيجة وتوقعها قبل كشفها. نتيجة كل شرط إما True (صواب) أو False (خطأ).">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip">أدوات الشرط</span><span>لو كانت <code class="il">x = 7</code></span></div><h2 data-ed>عوامل المقارنة والعوامل المنطقية</h2></div>
+    <div class="cols w6040">
+      <div class="col reveal">
+        <table class="ops">
+          <thead><tr><th>العامل</th><th>المعنى</th><th>مثال</th><th>النتيجة</th></tr></thead>
+          <tbody>
+            <tr><td class="m c">&gt;</td><td>أكبر من</td><td class="m">x &gt; 5</td><td><span class="badge T">True</span></td></tr>
+            <tr><td class="m c">&lt;</td><td>أصغر من</td><td class="m">x &lt; 5</td><td><span class="badge F">False</span></td></tr>
+            <tr><td class="m c">&gt;=</td><td>أكبر من أو يساوي</td><td class="m">x &gt;= 7</td><td><span class="badge T">True</span></td></tr>
+            <tr><td class="m c">&lt;=</td><td>أصغر من أو يساوي</td><td class="m">x &lt;= 6</td><td><span class="badge F">False</span></td></tr>
+            <tr><td class="m c">==</td><td>يساوي</td><td class="m">x == 7</td><td><span class="badge T">True</span></td></tr>
+            <tr><td class="m c">!=</td><td>لا يساوي</td><td class="m">x != 7</td><td><span class="badge F">False</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col reveal">
+        <div class="card"><h3><span class="k">and</span> — كلا الشرطين</h3>
+          <div class="editor"><pre class="code xs">x > 5 and x &lt; 10</pre></div>
+          <p>كلاهما صحيح، النتيجة <span class="badge T">True</span></p></div>
+        <div class="card"><h3><span class="k">or</span> — أحدهما يكفي</h3>
+          <div class="editor"><pre class="code xs">x &lt; 0 or x > 6</pre></div>
+          <p>الثاني صحيح، النتيجة <span class="badge T">True</span></p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 7. SIMPLE IF: CONCEPT ======================= -->
+<section class="slide" data-note="تتبّع المخطط بإصبعك مع الطلاب: مرة بقيمة تحقق الشرط ومرة بقيمة لا تحققه. لاحظوا أن الطريقين يلتقيان في النهاية.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip">النوع الأول</span></div><h2 data-ed>جملة <span class="k">if</span> البسيطة</h2></div>
+    <div class="cols">
+      <div class="col center reveal">
+        <ul class="list tf" style="font-size:36px">
+          <li class="t-row" data-ed>إذا تحقق الشرط <span class="badge T">True</span> تُنفَّذ العبارة أو العبارات التي تتبع <span class="k">if</span>.</li>
+          <li class="f-row" data-ed>إذا لم يتحقق الشرط <span class="badge F">False</span> يتخطاها البرنامج ويكمل ما بعدها.</li>
+        </ul>
+        <div class="editor"><div class="bar"><i></i><i></i><i></i><span>الصيغة العامة</span></div><pre class="code">if الشرط:
+    العبارة</pre></div>
+      </div>
+      <div class="col center reveal">
+        <svg class="fc" viewBox="0 0 680 480" role="img" aria-label="مخطط انسيابي لجملة if البسيطة">
+          <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#9fb7b2"/></marker>
+          <marker id="ahG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5ad19a"/></marker>
+          <marker id="ahR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ff7b6b"/></marker></defs>
+          <path class="wire" d="M400 10 V50" marker-end="url(#ah)"/>
+          <polygon class="dia" points="400,55 540,135 400,215 260,135"/>
+          <text x="400" y="135">الشرط</text>
+          <g class="yes"><path class="wire" d="M260 135 H150 V255" marker-end="url(#ahG)"/><text class="lbl" x="205" y="112">صواب</text></g>
+          <rect class="proc" x="40" y="262" width="220" height="84" rx="10"/><text x="150" y="304">العبارة</text>
+          <g class="yes"><path class="wire" d="M150 346 V400 H392" marker-end="url(#ahG)"/></g>
+          <g class="no"><path class="wire" d="M540 135 H630 V400 H410" marker-end="url(#ahR)"/><text class="lbl" x="590" y="112">خطأ</text></g>
+          <path class="wire" d="M400 400 V465" marker-end="url(#ah)"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 8. SIMPLE IF: PREDICT ======================= -->
+<section class="slide" data-note="توقّع ← شغّل: بعد الإجابة الصحيحة اطلب من الطلاب تعديل grade إلى 8 وتوقع الناتج (لا شيء يظهر).">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip">توقّع ← شغّل</span><span>مثال على <span class="k">if</span> البسيطة</span></div><h2 data-ed>هل الطالب ناجح؟</h2></div>
+    <div class="cols">
+      <div class="col center reveal">
+        <div class="quiz">
+          <p class="q">ماذا سيظهر على الشاشة؟</p>
+          <div class="opts">
+            <button class="opt" data-ok="1" data-why="قيمة grade هي 17، والشرط 17 >= 10 صحيح، فيُنفَّذ أمر الطباعة.">ناجح</button>
+            <button class="opt" data-why="انظر إلى الشرط: هل 17 أكبر من 10 أو يساويها؟ إذا كان صحيحًا تُنفَّذ العبارة التي تحت if.">لا يظهر شيء</button>
+            <button class="opt" data-why="الكود مكتوب بشكل صحيح: يوجد نقطتان بعد الشرط ومسافة بادئة قبل print.">رسالة خطأ</button>
+          </div>
+          <p class="fb" aria-live="polite"></p>
+        </div>
+        <p class="muted" style="font-size:28px" data-ed>عدّل: ماذا لو كانت <code class="il">grade = 8</code>؟</p>
+      </div>
+      <div class="col center reveal">
+        <div class="editor"><div class="bar"><i></i><i></i><i></i><span>pass.py</span></div><pre class="code">grade = 17
+if grade >= 10:
+    print("ناجح")</pre></div>
+        <div class="row"><button class="btn run" data-term="t8">▶ شغّل الكود</button></div>
+        <div class="term" id="t8"><span class="wait">توقّع أولًا، ثم اضغط «شغّل».</span><span class="o">ناجح</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 9. IF ELSE: PREDICT ======================= -->
+<section class="slide" data-note="ركّز على أن else ليس لها شرط، وتأتي بعدها نقطتان أيضًا. يُنفَّذ فرع واحد فقط من الفرعين.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip">توقّع ← شغّل</span><span>النوع الثاني</span></div><h2 data-ed>جملة <span class="k">if…else</span>: طريقان لا ثالث لهما</h2></div>
+    <div class="cols">
+      <div class="col center reveal">
+        <div class="quiz">
+          <p class="q">قيمة <code class="il">grade</code> هي 7. ماذا سيظهر؟</p>
+          <div class="opts">
+            <button class="opt" data-why="الشرط 7 >= 10 غير صحيح، لذلك لا تُنفَّذ العبارة التي تحت if.">ناجح</button>
+            <button class="opt" data-ok="1" data-why="الشرط 7 >= 10 خطأ (False)، فينتقل البرنامج إلى فرع else وينفّذه.">تحتاج إلى المحاولة أكثر</button>
+            <button class="opt" data-why="في جملة if…else يُنفَّذ فرع واحد فقط: إما فرع if أو فرع else.">تظهر الرسالتان معًا</button>
+          </div>
+          <p class="fb" aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="col center reveal">
+        <div class="editor"><div class="bar"><i></i><i></i><i></i><span>result.py</span></div><pre class="code">grade = 7
+if grade >= 10:
+    print("ناجح")
+else:
+    print("تحتاج إلى المحاولة أكثر")</pre></div>
+        <div class="row"><button class="btn run" data-term="t9">▶ شغّل الكود</button></div>
+        <div class="term" id="t9"><span class="wait">توقّع أولًا، ثم اضغط «شغّل».</span><span class="o">تحتاج إلى المحاولة أكثر</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 10. ELIF LAB ======================= -->
+<section class="slide" data-note="معمل تفاعلي: حرّك المؤشر واطلب من الطلاب توقع الفرع قبل الإفلات. جرّب القيم الحدّية: 9 و 10 و 14 و 15.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip">معمل الشروط</span><span>النوع الثالث</span></div><h2 data-ed>جملة <span class="k">if…elif…else</span>: أول شرط يتحقق يفوز</h2></div>
+    <div class="cols">
+      <div class="col reveal">
+        <div class="lab">
+          <label for="gradeRange" style="font-size:30px">غيّر درجة الطالب وراقب الفرع الذي يُنفَّذ:</label>
+          <div class="row" style="gap:28px"><span class="val" id="gradeVal">grade = 12</span></div>
+          <input type="range" id="gradeRange" min="0" max="20" value="12" step="1" aria-label="درجة الطالب">
+        </div>
+        <div class="trace" id="trace"></div>
+      </div>
+      <div class="col reveal">
+        <div class="editor"><div class="bar"><i></i><i></i><i></i><span>levels.py</span><b>السطر المضيء يُنفَّذ</b></div><pre class="code sm" id="elifCode"></pre></div>
+        <div class="term ran" id="tElif"><span class="o" id="elifOut">جيد جدًا</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 11. INDENTATION ======================= -->
+<section class="slide" data-note="IndentationError يظهر قبل أن يطلب البرنامج أي إدخال، لأن بايثون تفحص الكود كاملًا قبل التنفيذ.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip r">خطأ شائع</span></div><h2 data-ed>المسافة البادئة ليست زينة</h2>
+      <p class="lead" data-ed>بها يعرف البرنامج أيّ العبارات تعتمد على تحقق الشرط. إذا لم تتركها ستظهر رسالة خطأ.</p></div>
+    <div class="cols reveal">
+      <div class="col">
+        <h3 class="t">✓ بمسافة بادئة</h3>
+        <div class="editor"><pre class="code sm">grade = int(input("اكتب الدرجة: "))
+if grade >= 10:
+    print("ناجح")</pre></div>
+        <div class="row"><button class="btn run" data-term="t11b">▶ شغّل (الدرجة 15)</button></div>
+        <div class="term" id="t11b"><span class="wait">اضغط «شغّل».</span><span class="o in">اكتب الدرجة: <b>15</b></span><span class="o">ناجح</span></div>
+      </div>
+      <div class="col">
+        <h3 class="f">✗ بدون مسافة بادئة</h3>
+        <div class="editor"><pre class="code sm">grade = int(input("اكتب الدرجة: "))
+if grade >= 10:
+print("ناجح")</pre></div>
+        <div class="row"><button class="btn run" data-term="t11a">▶ شغّل</button></div>
+        <div class="term" id="t11a"><span class="wait">توقّع: هل سيطلب البرنامج الدرجة أولًا؟</span><span class="o err">IndentationError: expected an indented block after 'if' statement on line 2</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 12. WHAT BELONGS TO IF ======================= -->
+<section class="slide" data-note="الأمر الثاني لا ينتمي إلى جملة if لأنه بلا مسافة بادئة، لذلك يُنفَّذ دائمًا مهما كانت نتيجة الشرط.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip">توقّع ← عدّل</span></div><h2 data-ed>أيّ الأوامر تتبع جملة <span class="k">if</span>؟</h2></div>
+    <div class="cols">
+      <div class="col center reveal">
+        <div class="editor"><div class="bar"><i></i><i></i><i></i><span>skills.py</span></div><pre class="code sm">grade = 18
+if grade >= 15:
+    print("ممتاز")
+print("استمر في تطوير مهاراتك")</pre></div>
+        <div class="row"><button class="btn run" data-term="t12">▶ شغّل مع grade = 18</button></div>
+        <div class="term" id="t12"><span class="wait">اضغط «شغّل».</span><span class="o">ممتاز</span><span class="o">استمر في تطوير مهاراتك</span></div>
+      </div>
+      <div class="col center reveal">
+        <div class="quiz">
+          <p class="q">عدّل: لو غيّرنا القيمة إلى <code class="il">grade = 12</code>، ماذا يظهر؟</p>
+          <div class="opts">
+            <button class="opt" data-why="الشرط 12 >= 15 خطأ فلن تظهر «ممتاز»، لكن انظر إلى السطر الأخير: هل عليه مسافة بادئة؟">لا يظهر شيء</button>
+            <button class="opt" data-ok="1" data-why="«ممتاز» لن تظهر لأن الشرط خطأ، أما السطر الأخير فلا ينتمي إلى if (بلا مسافة بادئة) فيُنفَّذ دائمًا.">استمر في تطوير مهاراتك</button>
+            <button class="opt" data-why="«ممتاز» تحتاج أن يتحقق الشرط 12 >= 15، وهو غير متحقق.">ممتاز ثم استمر في تطوير مهاراتك</button>
+          </div>
+          <p class="fb" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 13. EXAMPLE 1 ======================= -->
+<section class="slide" data-note="اربط كل شكل في المخطط بسطر في الكود: المستطيل = إسناد القيم، المعيّن = الشرط، متوازي الأضلاع = الطباعة.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip">مثال 1</span></div><h2 data-ed>مقارنة رقمين</h2></div>
+    <div class="cols">
+      <div class="col center reveal">
+        <svg class="fc" viewBox="0 0 680 640" role="img" aria-label="مخطط انسيابي لمقارنة رقمين">
+          <rect class="proc" x="270" y="10" width="260" height="96" rx="10"/><text class="code" x="400" y="40">a = 100</text><text class="code" x="400" y="76">b = 20</text>
+          <path class="wire" d="M400 106 V146" marker-end="url(#ah)"/>
+          <polygon class="dia" points="400,150 540,230 400,310 260,230"/><text class="code" x="400" y="230">a > b</text>
+          <g class="yes"><path class="wire" d="M260 230 H150 V352" marker-end="url(#ahG)"/><text class="lbl" x="205" y="207">صواب</text></g>
+          <polygon class="io" points="60,360 290,360 250,440 20,440"/><text x="155" y="400">a أكبر من b</text>
+          <g class="yes"><path class="wire" d="M150 440 V490 H392" marker-end="url(#ahG)"/></g>
+          <g class="no"><path class="wire" d="M540 230 H630 V490 H410" marker-end="url(#ahR)"/><text class="lbl" x="590" y="207">خطأ</text></g>
+          <path class="wire" d="M400 490 V530" marker-end="url(#ah)"/>
+          <polygon class="io" points="290,535 550,535 510,615 250,615"/><text x="400" y="575">استمر في البرمجة</text>
+        </svg>
+      </div>
+      <div class="col center reveal">
+        <div class="editor"><div class="bar"><i></i><i></i><i></i><span>compare.py</span></div><pre class="code">a = 100
+b = 20
+if a > b:
+    print("a أكبر من b")
+print("استمر في البرمجة")</pre></div>
+        <div class="row"><button class="btn run" data-term="t13">▶ شغّل الكود</button></div>
+        <div class="term" id="t13"><span class="wait">ما الذي سيظهر؟ سطر أم سطران؟</span><span class="o">a أكبر من b</span><span class="o">استمر في البرمجة</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 14. EXAMPLE 2 (input) ======================= -->
+<section class="slide" data-note="جرّب مع الطلاب: 5 ثم 0 ثم -3. سؤال للنقاش: لماذا لا يظهر «رقم موجب» عند إدخال 0؟">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip">مثال 2</span><span>جرّب بنفسك</span></div><h2 data-ed>هل الرقم موجب؟</h2></div>
+    <div class="cols">
+      <div class="col center reveal">
+        <div class="editor"><div class="bar"><i></i><i></i><i></i><span>positive.py</span></div><pre class="code sm">print("من فضلك أدخل قيمة المتغير x:")
+x = int(input())
+if x > 0:
+    print(x, "رقم موجب")
+print("استمر في البرمجة")</pre></div>
+      </div>
+      <div class="col center reveal">
+        <div class="check" id="posLab">
+          <label for="posIn" style="font-size:30px">أدخل قيمة x ثم شغّل:</label>
+          <div class="row"><input id="posIn" type="number" value="5" inputmode="numeric"><button class="btn" id="posRun">▶ شغّل</button></div>
+        </div>
+        <div class="term ran" id="tPos"><span class="wait">أدخل رقمًا واضغط «شغّل».</span></div>
+        <p class="fb" id="posFb" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 15. TRAINING 1 ======================= -->
+<section class="slide" data-note="تدريب 1 من الكتاب ص127. في السؤال الثاني: السطر Number != 12 مقارنة وليس إسنادًا، والمتغير لم يُعرَّف بعد.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip g">لنطبّق معًا · تدريب 1</span></div><h2 data-ed>ماذا يحدث عند تشغيل المقطع البرمجي؟</h2></div>
+    <div class="cols reveal">
+      <div class="col">
+        <div class="editor"><pre class="code sm">Number = 12
+if Number > 0:
+    print("رقم موجب")</pre></div>
+        <div class="quiz">
+          <div class="opts">
+            <button class="opt" data-why="الصيغة صحيحة: نقطتان بعد الشرط ومسافة بادئة قبل print.">لن يعمل لوجود خطأ في صيغة الأوامر.</button>
+            <button class="opt" data-why="قيمة Number هي 12، و 12 > 0 صحيح، فالشرط متحقق.">لن تُعرض أي رسالة لأن الشرط لم يتحقق.</button>
+            <button class="opt" data-ok="1" data-why="12 > 0 شرط صحيح (True)، فتُنفَّذ عبارة الطباعة.">ستُعرض الرسالة «رقم موجب».</button>
+          </div>
+          <p class="fb" aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="col">
+        <div class="editor"><pre class="code sm">Number != 12
+if Number > 0:
+    print("رقم موجب")</pre></div>
+        <div class="quiz">
+          <div class="opts">
+            <button class="opt" data-ok="1" data-why="العلامة != تعني «لا يساوي» وهي للمقارنة، فلم تُسنَد أي قيمة إلى Number. يظهر الخطأ NameError: name 'Number' is not defined.">لن يعمل لوجود خطأ في صيغة الأوامر.</button>
+            <button class="opt" data-why="البرنامج لن يصل إلى فحص الشرط أصلًا. هل للمتغير Number قيمة؟ ما الفرق بين = و != ؟">لن تُعرض أي رسالة لأن الشرط لم يتحقق.</button>
+            <button class="opt" data-why="السطر الأول لا يعطي Number قيمة؛ فالعلامة != للمقارنة وليست للإسناد.">ستُعرض الرسالة «رقم موجب».</button>
+          </div>
+          <p class="fb" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 16. TRAINING 2 ======================= -->
+<section class="slide" data-note="تدريب 2: الكود يحوّل العدد السالب إلى موجب (القيمة المطلقة). اسأل: ماذا يطبع لو كانت a = 4؟">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip g">لنطبّق معًا · تدريب 2</span></div><h2 data-ed>اكتب ناتج المقطع البرمجي</h2></div>
+    <div class="cols">
+      <div class="col center reveal">
+        <div class="editor"><div class="bar"><i></i><i></i><i></i><span>training2.py</span></div><pre class="code">a = -7
+if a &lt; 0:
+    a = a * (-1)
+print(a)</pre></div>
+      </div>
+      <div class="col center reveal">
+        <div class="check" data-expected="7"
+             data-ok="الشرط ‎-7 &lt; 0‎ صحيح، فتصبح a = ‎-7 × -1‎ = 7، ثم يطبع print(a) القيمة الجديدة."
+             data-no="تتبّع الكود سطرًا سطرًا: هل الشرط a &lt; 0 صحيح؟ إذا كان كذلك فما قيمة a بعد ضربها في ‎-1‎؟"
+             data-hints='{"-7":"الشرط ‎-7 &lt; 0‎ صحيح، لذلك يُنفَّذ السطر الثالث وتتغير قيمة a قبل الطباعة.","a":"print(a) تطبع قيمة المتغير a وليس الحرف a، لأنه بلا علامتي تنصيص."}'>
+          <label for="c16" style="font-size:30px">الناتج:</label>
+          <div class="row"><input id="c16" type="text" autocomplete="off"><button class="btn">تحقّق</button></div>
+          <p class="fb" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 17. TRAINING 3 ======================= -->
+<section class="slide" data-note="فكّر، زاوج، شارك: دقيقة فردية، ثم دقيقة مع الزميل، ثم المشاركة. التحدي: القيم 5 و 5 و 3 تُظهر NameError لأن m لا تأخذ قيمة.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip g">لنطبّق معًا · تدريب 3</span><span>فكّر ← زاوج ← شارك</span></div><h2 data-ed>القيم: a = 5 ، b = 12 ، c = 9</h2></div>
+    <div class="cols">
+      <div class="col reveal">
+        <div class="editor"><pre class="code xs">print("من فضلك أدخل قيمة a و b و c:")
+a = int(input())
+b = int(input())
+c = int(input())
+if a > b and a > c:
+    m = a
+if b > a and b > c:
+    m = b
+if c > a and c > b:
+    m = c
+print(m)</pre></div>
+      </div>
+      <div class="col reveal" style="gap:16px">
+        <div class="row"><button class="btn amber" id="tpsBtn">⏱ فكّر دقيقة</button><span class="timer" id="tpsTime">01:00</span></div>
+        <div class="check" data-expected="12"
+             data-ok="الشرط الثاني فقط صحيح: 12 > 5 و 12 > 9، فتصبح m = 12."
+             data-no="افحص كل شرط على حدة: أيّ عدد أكبر من العددين الآخرين معًا؟"
+             data-hints='{"5":"الشرط a > b يعني 5 > 12 وهو خطأ، فلا تأخذ m قيمة a.","9":"c > b يعني 9 > 12 وهو خطأ، فلا تأخذ m قيمة c.","m":"print(m) تطبع القيمة المخزنة في m وليس الحرف m."}'>
+          <div class="row"><label for="c17" style="font-size:30px">الناتج:</label><input id="c17" type="text" autocomplete="off"><button class="btn">تحقّق</button></div>
+          <p class="fb" aria-live="polite"></p>
+        </div>
+        <div class="quiz">
+          <p class="q">ما وظيفة المقطع البرمجي؟</p>
+          <div class="opts two">
+            <button class="opt" data-why="لاحظ العامل >: كل شرط يسأل هل العدد أكبر من الآخرين.">إيجاد أصغر الأعداد الثلاثة</button>
+            <button class="opt" data-ok="1" data-why="كل شرط يفحص هل العدد أكبر من العددين الآخرين، ثم يخزّنه في m ويطبعه.">إيجاد أكبر الأعداد الثلاثة</button>
+          </div>
+          <p class="fb" aria-live="polite"></p>
+        </div>
+        <div class="row"><button class="btn ghost run" data-term="t17">تحدٍّ: ماذا لو أدخلنا 5 و 5 و 3؟</button></div>
+        <div class="term" id="t17"><span class="wait">توقّع قبل الضغط.</span><span class="o err">NameError: name 'm' is not defined</span><span class="o" style="font-size:26px">لا يتحقق أي شرط لأن a يساوي b، فلا تأخذ m أي قيمة.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 18. TRAINING 4 ======================= -->
+<section class="slide" data-note="تدريب 4: اطلب من الطلاب رسم المخطط في الكتاب أولًا، ثم اكشف الكود. سن القيادة في المملكة 18 سنة لرخصة القيادة الخاصة.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip g">لنطبّق معًا · تدريب 4</span></div><h2 data-ed>هل عمرك مناسب لقيادة السيارة؟</h2></div>
+    <div class="cols">
+      <div class="col center reveal">
+        <svg class="fc" id="driveFc" viewBox="0 0 720 660" role="img" aria-label="مخطط انسيابي للتحقق من سن القيادة">
+          <rect class="shape" x="290" y="10" width="140" height="60" rx="30"/><text x="360" y="40">بداية</text>
+          <path class="wire" d="M360 70 V100" marker-end="url(#ah)"/>
+          <polygon class="io" points="270,105 490,105 450,175 230,175"/><text x="360" y="140">أدخل العمر age</text>
+          <path class="wire" d="M360 175 V205" marker-end="url(#ah)"/>
+          <polygon class="dia" points="360,210 490,280 360,350 230,280"/><text class="code" x="360" y="280">age >= 18</text>
+          <g class="path yes" id="pYes">
+            <path class="wire" d="M230 280 H130 V382" marker-end="url(#ahG)"/><text class="lbl" x="180" y="258">صواب</text>
+            <polygon class="io" points="40,390 260,390 220,470 0,470"/><text x="130" y="430">عمرك مناسب</text>
+            <path class="wire" d="M130 470 V540 H352" marker-end="url(#ahG)"/>
+          </g>
+          <g class="path no" id="pNo">
+            <path class="wire" d="M490 280 H590 V382" marker-end="url(#ahR)"/><text class="lbl" x="540" y="258">خطأ</text>
+            <polygon class="io" points="500,390 720,390 680,470 460,470"/><text x="590" y="430">غير مناسب</text>
+            <path class="wire" d="M590 470 V540 H368" marker-end="url(#ahR)"/>
+          </g>
+          <path class="wire" d="M360 540 V582" marker-end="url(#ah)"/>
+          <rect class="shape" x="290" y="588" width="140" height="60" rx="30"/><text x="360" y="618">نهاية</text>
+        </svg>
+      </div>
+      <div class="col center reveal">
+        <div class="editor"><div class="bar"><i></i><i></i><i></i><span>drive.py</span></div><pre class="code xs">age = int(input("أدخل عمرك: "))
+if age >= 18:
+    print("عمرك مناسب لقيادة السيارة")
+else:
+    print("عمرك غير مناسب لقيادة السيارة")</pre></div>
+        <div class="check">
+          <div class="row"><label for="ageIn" style="font-size:30px">جرّب عمرًا:</label><input id="ageIn" type="number" value="15" inputmode="numeric"><button class="btn" id="ageRun">▶ شغّل</button></div>
+        </div>
+        <div class="term ran" id="tAge"><span class="wait">أدخل عمرًا ولاحظ الطريق في المخطط.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 19. BUG HUNT ======================= -->
+<section class="slide" data-note="صيّاد الأخطاء: يعمل الطلاب في مجموعات، وكل مجموعة تحدد سطرًا وتبرر. في الكود 3 أخطاء.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip r">صيّاد الأخطاء</span><span id="bugCount">وجدت 0 من 3</span></div><h2 data-ed>اضغط على كل سطر فيه خطأ</h2></div>
+    <div class="cols">
+      <div class="col center reveal">
+        <div class="editor"><div class="bar"><i></i><i></i><i></i><span>buggy.py</span></div><pre class="code sm" id="bugCode" data-bugs="2,4,5">score = int(input("أدخل درجتك: "))
+If score >= 10:
+    print("ناجح")
+else
+print("حاول مجددًا")</pre></div>
+        <div class="row"><button class="btn ghost" id="fixBtn">أظهر الكود الصحيح</button></div>
+        <div class="editor" id="fixed" hidden><pre class="code sm">score = int(input("أدخل درجتك: "))
+if score >= 10:
+    print("ناجح")
+else:
+    print("حاول مجددًا")</pre></div>
+      </div>
+      <div class="col center reveal">
+        <ul class="bugs" id="bugList">
+          <li data-line="2">خطأ مخفي…</li>
+          <li data-line="4">خطأ مخفي…</li>
+          <li data-line="5">خطأ مخفي…</li>
+        </ul>
+        <p class="fb" id="bugFb" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 20. SUMMARY + EXIT ======================= -->
+<section class="slide" data-note="بطاقة الخروج (إشارة المرور): يختار كل طالب لونه. الأحمر والأصفر يحتاجان متابعة في الحصة القادمة.">
+  <div class="frame">
+    <div class="head reveal"><div class="eyebrow"><span class="chip">الخلاصة</span></div><h2 data-ed>ماذا تعلمنا اليوم؟</h2></div>
+    <div class="cols">
+      <div class="col reveal">
+        <ul class="list" style="font-size:32px">
+          <li data-ed><span class="k">if</span> لطريق واحد، و <span class="k">else</span> للطريق البديل، و <span class="k">elif</span> لشروط إضافية.</li>
+          <li data-ed>نتيجة الشرط دائمًا <span class="badge T">True</span> أو <span class="badge F">False</span>.</li>
+          <li data-ed>النقطتان <code class="il">:</code> بعد الشرط، و 4 مسافات قبل العبارات التابعة له.</li>
+          <li data-ed>السطر الذي بلا مسافة بادئة يُنفَّذ دائمًا.</li>
+          <li data-ed>نستخدم <code class="il">==</code> للمقارنة و <code class="il">=</code> للإسناد.</li>
+        </ul>
+      </div>
+      <div class="col reveal">
+        <h3>بطاقة الخروج: أين أنت الآن؟</h3>
+        <div class="lights">
+          <button class="light" data-c="g" data-msg="رائع! جرّب في البيت: اكتب برنامجًا يطلب درجة الحرارة ويطبع «حار» أو «معتدل» أو «بارد» باستخدام elif."><i></i>فهمت وأستطيع الكتابة</button>
+          <button class="light" data-c="y" data-msg="جيد. راجع شريحتي المسافة البادئة وصيّاد الأخطاء، ثم حل تدريب 2 مرة أخرى دون النظر للإجابة."><i></i>فهمت وأحتاج تدريبًا</button>
+          <button class="light" data-c="r" data-msg="لا بأس، هذا طبيعي في البداية. ارفع يدك أو اسأل معلمك بعد الحصة، وابدأ بمعمل الشروط في الشريحة العاشرة."><i></i>أحتاج مساعدة</button>
+        </div>
+        <p class="fb" id="exitFb" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<!-- Deck chrome: progress, controls, teacher notes -->
+<div class="progress" id="progress"></div>
+<div class="notes" id="notes" hidden></div>
+<nav class="deck-controls" aria-label="التنقل بين الشرائح">
+  <button id="prevBtn" aria-label="الشريحة السابقة">→ السابق</button>
+  <span class="count" id="count">1 / 20</span>
+  <button id="nextBtn" aria-label="الشريحة التالية">التالي ←</button>
+  <span class="score" id="score" title="إجابات صحيحة من المحاولة الأولى">✓ 0</span>
+  <button id="notesBtn" title="ملاحظات المعلم (N)">ملاحظات</button>
+  <button id="editBtn" title="تحرير النصوص (E)">تحرير</button>
+  <span class="sep" aria-hidden="true"></span>
+  <button id="narrBtn" title="استمع لشرح هذه الشريحة بصوت المعلم (P)" aria-pressed="false">🔊 الشرح</button>
+  <button id="autoBtn" title="تشغيل الشرح والانتقال بين الشرائح تلقائياً (A)" aria-pressed="false">▶ عرض تلقائي</button>
+  <span class="narr-bar" aria-hidden="true"><i id="narrFill"></i></span>
+</nav>
+<audio id="narrAudio" preload="auto"></audio>
+
+<script>
+/* ===========================================
+   1. PYTHON HIGHLIGHTER
+   Renders every pre.code into numbered lines, shows indentation guides,
+   and isolates Arabic strings so they read right-to-left inside LTR code.
+   =========================================== */
+const esc0 = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const esc = s => esc0(s).replace(/[\u0600-\u06FF][\u0600-\u06FF \d]*[\u0600-\u06FF\d]|[\u0600-\u06FF]/g, m => `<span class="ar-ph">${m}</span>`);
+const TOKENS = /("[^"]*")|(#.*$)|\b(if|elif|else|and|or|not|True|False)\b|\b(print|int|input)\b|\b(\d+)\b|(==|!=|>=|<=|[<>=*+\-])/g;
+function hlLine(line) {
+    const lead = line.match(/^ */)[0].length;
+    let html = '';
+    for (let i = 0; i < Math.floor(lead / 4); i++) html += '<span class="ind">    </span>';
+    html += ' '.repeat(lead % 4);
+    const body = line.slice(lead);
+    let last = 0, m;
+    TOKENS.lastIndex = 0;
+    while ((m = TOKENS.exec(body))) {
+        html += esc(body.slice(last, m.index));
+        const t = esc0(m[0]);
+        if (m[1]) html += `<span class="tk-str${/[؀-ۿ]/.test(m[1]) ? ' ar' : ''}">${t}</span>`;
+        else if (m[2]) html += `<span class="muted">${esc(m[0])}</span>`;
+        else if (m[3]) html += `<span class="tk-kw">${t}</span>`;
+        else if (m[4]) html += `<span class="tk-fn">${t}</span>`;
+        else if (m[5]) html += `<span class="tk-num">${t}</span>`;
+        else html += `<span class="tk-op">${t}</span>`;
+        last = m.index + m[0].length;
+    }
+    return html + esc(body.slice(last));
+}
+function renderCode(pre, src) {
+    const lines = src.replace(/^\n+|\s+$/g, '').split('\n');
+    pre.innerHTML = lines.map((l, i) => `<span class="ln" data-n="${i + 1}"><span class="no">${i + 1}</span>${hlLine(l) || ' '}</span>`).join('');
+}
+document.querySelectorAll('pre.code').forEach(pre => { if (pre.id !== 'elifCode') renderCode(pre, pre.textContent); });
+
+/* ===========================================
+   2. FEEDBACK + SCORE
+   =========================================== */
+let score = 0;
+const scoreEl = document.getElementById('score');
+const addPoint = () => { score++; scoreEl.textContent = '✓ ' + score; };
+function say(fb, ok, text) {
+    fb.className = 'fb ' + (ok ? 'ok' : 'no');
+    fb.innerHTML = `<strong class="${ok ? 'ok' : 'no'}">${ok ? 'إجابة صحيحة!' : 'ليست هذه.'}</strong> ${text}`;
+}
+
+/* Multiple-choice: wrong answers stay open for retry with a targeted hint */
+document.querySelectorAll('.quiz').forEach(q => {
+    let tries = 0, done = false;
+    const fb = q.querySelector('.fb');
+    q.querySelectorAll('.opt').forEach(btn => btn.addEventListener('click', () => {
+        if (done) return;
+        tries++;
+        const ok = btn.dataset.ok === '1';
+        say(fb, ok, btn.dataset.why);
+        if (ok) {
+            done = true; btn.classList.add('right');
+            q.querySelectorAll('.opt').forEach(b => b.disabled = true);
+            if (tries === 1) addPoint();
+        } else {
+            btn.classList.add('wrong', 'shake'); btn.disabled = true;
+            setTimeout(() => btn.classList.remove('shake'), 400);
+        }
+    }));
+});
+
+/* Typed answers with specific hints for common mistakes */
+document.querySelectorAll('.check[data-expected]').forEach(c => {
+    const input = c.querySelector('input'), btn = c.querySelector('button'), fb = c.querySelector('.fb');
+    let tries = 0, done = false;
+    let hints = {}; try { hints = JSON.parse(c.dataset.hints || '{}'); } catch (e) {}
+    const go = () => {
+        if (done) return;
+        const v = input.value.trim().replace(/\s+/g, '');
+        if (!v) { fb.className = 'fb'; fb.textContent = 'اكتب إجابتك أولًا.'; return; }
+        tries++;
+        if (v === c.dataset.expected) {
+            done = true; say(fb, true, c.dataset.ok); input.style.borderColor = 'var(--true)';
+            if (tries === 1) addPoint();
+        } else {
+            say(fb, false, hints[v] || c.dataset.no); input.classList.add('shake');
+            setTimeout(() => input.classList.remove('shake'), 400);
+        }
+    };
+    btn.addEventListener('click', go);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+});
+
+/* Run buttons reveal the terminal output */
+document.querySelectorAll('.run').forEach(b => b.addEventListener('click', () => {
+    const t = document.getElementById(b.dataset.term);
+    t.classList.remove('ran');
+    t.querySelectorAll('.o').forEach((o, i) => o.style.transitionDelay = (0.15 + i * 0.35) + 's');
+    requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('ran')));
+}));
+
+/* ===========================================
+   3. ELIF LAB (slide 10)
+   =========================================== */
+(() => {
+    const range = document.getElementById('gradeRange'), pre = document.getElementById('elifCode');
+    const val = document.getElementById('gradeVal'), out = document.getElementById('elifOut'), trace = document.getElementById('trace');
+    const B = '<span class="badge T">True</span>', F = '<span class="badge F">False</span>';
+    function update() {
+        const g = +range.value;
+        renderCode(pre, `grade = ${g}\nif grade >= 15:\n    print("ممتاز")\nelif grade >= 10:\n    print("جيد جدًا")\nelse:\n    print("تحتاج إلى المحاولة أكثر")`);
+        val.textContent = 'grade = ' + g;
+        let hot, rows;
+        if (g >= 15) { hot = [1, 2, 3]; out.textContent = 'ممتاز';
+            rows = [`<div><span class="k">${g} >= 15</span> ${B} ← يُنفَّذ فرع if</div>`, `<div class="muted">لا يفحص البرنامج بقية الشروط.</div>`]; }
+        else if (g >= 10) { hot = [1, 2, 4, 5]; out.textContent = 'جيد جدًا';
+            rows = [`<div><span class="k">${g} >= 15</span> ${F} ← ننتقل إلى elif</div>`, `<div><span class="k">${g} >= 10</span> ${B} ← يُنفَّذ فرع elif</div>`]; }
+        else { hot = [1, 2, 4, 6, 7]; out.textContent = 'تحتاج إلى المحاولة أكثر';
+            rows = [`<div><span class="k">${g} >= 15</span> ${F} ← ننتقل إلى elif</div>`, `<div><span class="k">${g} >= 10</span> ${F} ← ننتقل إلى else</div>`, `<div>else ليس لها شرط ← يُنفَّذ فرعها</div>`]; }
+        pre.querySelectorAll('.ln').forEach(l => {
+            const run = hot.includes(+l.dataset.n);
+            l.classList.toggle('hot', run); l.classList.toggle('skip', !run);
+        });
+        trace.innerHTML = rows.join('');
+    }
+    range.addEventListener('input', update);
+    update();
+})();
+
+/* ===========================================
+   4. POSITIVE NUMBER LAB (slide 14)
+   =========================================== */
+(() => {
+    const inp = document.getElementById('posIn'), term = document.getElementById('tPos'), fb = document.getElementById('posFb');
+    const run = () => {
+        const x = parseInt(inp.value, 10);
+        if (isNaN(x)) { fb.className = 'fb no'; fb.textContent = 'اكتب عددًا صحيحًا مثل 5 أو ‎-3‎. الدالة int لا تقبل نصًا.'; return; }
+        let h = `<span class="o">من فضلك أدخل قيمة المتغير x:</span><span class="o in"><b>${x}</b></span>`;
+        if (x > 0) h += `<span class="o">${x} رقم موجب</span>`;
+        h += `<span class="o">استمر في البرمجة</span>`;
+        term.innerHTML = h;
+        fb.className = 'fb ' + (x > 0 ? 'ok' : 'no');
+        fb.innerHTML = x > 0 ? `<strong class="ok">الشرط ${x} > 0 صحيح،</strong> فطُبعت عبارة «رقم موجب».`
+            : `<strong class="no">الشرط ${x} > 0 خطأ،</strong> فتخطى البرنامج عبارة «رقم موجب» وطبع السطر الأخير فقط.${x === 0 ? ' الصفر ليس موجبًا ولا سالبًا.' : ''}`;
+    };
+    document.getElementById('posRun').addEventListener('click', run);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+})();
+
+/* ===========================================
+   5. DRIVING AGE LAB (slide 18)
+   =========================================== */
+(() => {
+    const inp = document.getElementById('ageIn'), term = document.getElementById('tAge'), fc = document.getElementById('driveFc');
+    const run = () => {
+        const a = parseInt(inp.value, 10);
+        if (isNaN(a)) { term.innerHTML = '<span class="o">اكتب العمر رقمًا صحيحًا.</span>'; return; }
+        const ok = a >= 18;
+        fc.classList.add('pick');
+        document.getElementById('pYes').classList.toggle('dim', !ok);
+        document.getElementById('pNo').classList.toggle('dim', ok);
+        term.innerHTML = `<span class="o in">أدخل عمرك: <b>${a}</b></span><span class="o">${ok ? 'عمرك مناسب لقيادة السيارة' : 'عمرك غير مناسب لقيادة السيارة'}</span><span class="o muted" style="font-size:25px">الشرط ${a} >= 18 ${ok ? 'صحيح، طريق الصواب.' : 'خطأ، طريق else.'}</span>`;
+    };
+    document.getElementById('ageRun').addEventListener('click', run);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+})();
+
+/* ===========================================
+   6. THINK-PAIR-SHARE TIMER (slide 17)
+   =========================================== */
+(() => {
+    const btn = document.getElementById('tpsBtn'), out = document.getElementById('tpsTime');
+    let timer = null, phase = 0;
+    btn.addEventListener('click', () => {
+        clearInterval(timer);
+        let s = 60;
+        out.textContent = '01:00';
+        btn.textContent = phase === 0 ? 'فكّر بمفردك…' : 'ناقش زميلك…';
+        timer = setInterval(() => {
+            s--; out.textContent = '00:' + String(s).padStart(2, '0');
+            if (s <= 0) {
+                clearInterval(timer);
+                out.textContent = phase === 0 ? 'زاوج!' : 'شارك!';
+                btn.textContent = phase === 0 ? '⏱ زاوج دقيقة' : '⏱ ابدأ من جديد';
+                phase = (phase + 1) % 2;
+            }
+        }, 1000);
+    });
+})();
+
+/* ===========================================
+   7. BUG HUNT (slide 19)
+   =========================================== */
+(() => {
+    const pre = document.getElementById('bugCode'), fb = document.getElementById('bugFb'), count = document.getElementById('bugCount');
+    const bugs = { 2: 'السطر 2: <code class="il">If</code> بحرف كبير، والصحيح <code class="il">if</code> بحروف صغيرة.',
+                   4: 'السطر 4: نقصت النقطتان بعد <code class="il">else</code>، والصحيح <code class="il">else:</code>',
+                   5: 'السطر 5: نقصت المسافة البادئة؛ عبارة الطباعة تابعة لـ else فتحتاج 4 مسافات.' };
+    const found = new Set();
+    pre.querySelectorAll('.ln').forEach(l => {
+        l.tabIndex = 0; l.style.cursor = 'pointer';
+        const pick = () => {
+            const n = +l.dataset.n;
+            if (bugs[n]) {
+                if (found.has(n)) return;
+                found.add(n); l.classList.add('bug');
+                const li = document.querySelector(`#bugList li[data-line="${n}"]`);
+                li.innerHTML = bugs[n]; li.classList.add('found');
+                count.textContent = `وجدت ${found.size} من 3`;
+                say(fb, true, found.size === 3 ? 'وجدت الأخطاء الثلاثة. أنت صيّاد أخطاء محترف!' : 'أحسنت، تابع البحث.');
+                if (found.size === 3) addPoint();
+            } else {
+                l.classList.add('shake'); setTimeout(() => l.classList.remove('shake'), 400);
+                say(fb, false, `السطر ${n} سليم. راجع القواعد الأربع: الحروف الصغيرة، النقطتان، المسافة البادئة، == و =.`);
+            }
+        };
+        l.addEventListener('click', pick);
+        l.addEventListener('keydown', e => { if (e.key === 'Enter') pick(); });
+    });
+    document.getElementById('fixBtn').addEventListener('click', () => { document.getElementById('fixed').hidden = false; });
+})();
+
+/* ===========================================
+   8. EXIT TICKET (slide 20)
+   =========================================== */
+document.querySelectorAll('.light').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.light').forEach(x => x.classList.toggle('on', x === b));
+    const fb = document.getElementById('exitFb');
+    fb.className = 'fb ' + (b.dataset.c === 'g' ? 'ok' : 'no');
+    fb.textContent = b.dataset.msg;
+}));
+
+/* ===========================================
+   9. SLIDE PRESENTATION CONTROLLER
+   RTL deck: ArrowLeft = next, ArrowRight = previous. Space / PageDown also next.
+   =========================================== */
+class SlidePresentation {
+    constructor() {
+        this.slides = [...document.querySelectorAll('.slide')];
+        this.stage = document.getElementById('deckStage');
+        this.i = 0;
+        this.notes = document.getElementById('notes');
+        this.setupStageScale();
+        this.setupNav();
+        const h = parseInt((location.hash || '').replace('#s', ''), 10);
+        this.show(isNaN(h) ? 0 : h - 1);
+    }
+    setupStageScale() {
+        const scale = () => {
+            const f = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+            this.stage.style.transform = `translate(${(window.innerWidth - 1920 * f) / 2}px, ${(window.innerHeight - 1080 * f) / 2}px) scale(${f})`;
+        };
+        scale(); window.addEventListener('resize', scale);
+    }
+    typing(e) { const t = e.target; return t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable; }
+    setupNav() {
+        document.addEventListener('keydown', e => {
+            if (this.typing(e)) return;
+            if (['ArrowLeft', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); this.show(this.i + 1); }
+            else if (['ArrowRight', 'PageUp'].includes(e.key)) { e.preventDefault(); this.show(this.i - 1); }
+            else if (e.key === 'Home') this.show(0);
+            else if (e.key === 'End') this.show(this.slides.length - 1);
+            else if (e.key === 'n' || e.key === 'N') this.toggleNotes();
+            else if (e.key === 'e' || e.key === 'E') editor.toggle();
+        });
+        document.getElementById('nextBtn').onclick = () => this.show(this.i + 1);
+        document.getElementById('prevBtn').onclick = () => this.show(this.i - 1);
+        document.getElementById('notesBtn').onclick = () => this.toggleNotes();
+        let x0 = null;
+        document.addEventListener('touchstart', e => {
+            x0 = e.target.closest('button, input, .ln, .editor') ? null : e.touches[0].clientX;
+        }, { passive: true });
+        document.addEventListener('touchend', e => {
+            if (x0 === null) return;
+            const dx = e.changedTouches[0].clientX - x0;
+            if (Math.abs(dx) > 50) this.show(this.i + (dx > 0 ? 1 : -1));
+            x0 = null;
+        });
+    }
+    toggleNotes() {
+        this.notes.hidden = !this.notes.hidden;
+        document.getElementById('notesBtn').classList.toggle('on', !this.notes.hidden);
+        this.fillNotes();
+    }
+    fillNotes() {
+        const n = this.slides[this.i].dataset.note;
+        this.notes.innerHTML = `<b>ملاحظة للمعلم:</b> ${n || '—'}`;
+    }
+    show(n) {
+        this.i = Math.max(0, Math.min(n, this.slides.length - 1));
+        this.slides.forEach((s, k) => { s.classList.toggle('active', k === this.i); s.classList.toggle('visible', k === this.i); });
+        document.getElementById('count').textContent = `${this.i + 1} / ${this.slides.length}`;
+        document.getElementById('progress').style.width = ((this.i + 1) / this.slides.length * 100) + '%';
+        if (!this.notes.hidden) this.fillNotes();
+        if (window.narr) narr.onShow(this.i);
+    }
+}
+
+/* ===========================================
+   9b. TEACHER NARRATION (voice of المعلم يحيى الشمراني)
+   🔊 plays the current slide's narration; «عرض تلقائي» plays and advances.
+   =========================================== */
+const narr = {
+    audio: document.getElementById('narrAudio'),
+    btn: document.getElementById('narrBtn'),
+    autoBtn: document.getElementById('autoBtn'),
+    bar: document.querySelector('.narr-bar'),
+    fill: document.getElementById('narrFill'),
+    mode: 'off',            // 'off' | 'on' (play per slide) | 'auto' (play + advance)
+    timer: null,
+    src(i) { return 'audio/s' + String(i + 1).padStart(2, '0') + '.mp3'; },
+    resumeAt: -1,           // slide whose narration was paused mid-way (-1 = none)
+    play(i, resume) {
+        clearTimeout(this.timer);
+        if (!(resume && this.resumeAt === i)) {
+            this.audio.src = this.src(i);
+            this.audio.currentTime = 0;
+        }
+        this.resumeAt = -1;
+        const p = this.audio.play();
+        if (p && p.catch) p.catch(() => this.set('off'));
+    },
+    stop() {
+        const waitingForNext = !!this.timer && this.audio.ended;
+        clearTimeout(this.timer); this.timer = null;
+        this.audio.pause();
+        // remember where we stopped so the next start continues from the same spot
+        this.resumeAt = this.audio.ended ? -1 : deck.i;
+        this.skipOnResume = waitingForNext;
+    },
+    set(m) {
+        this.mode = m;
+        this.btn.classList.toggle('playing', m === 'on');
+        this.autoBtn.classList.toggle('playing', m === 'auto');
+        this.btn.setAttribute('aria-pressed', m === 'on');
+        this.autoBtn.setAttribute('aria-pressed', m === 'auto');
+        this.autoBtn.textContent = m === 'auto' ? '⏸ إيقاف العرض' : '▶ عرض تلقائي';
+        this.bar.classList.toggle('on', m !== 'off');
+        if (m === 'off') { this.stop(); return; }
+        if (this.skipOnResume && m === 'auto' && deck.i < deck.slides.length - 1) {
+            this.skipOnResume = false; deck.show(deck.i + 1); return;
+        }
+        this.skipOnResume = false;
+        this.play(deck.i, true);
+    },
+    onShow(i) {
+        if (this.mode !== 'off') this.play(i);
+        else if (i !== this.resumeAt) { this.resumeAt = -1; this.skipOnResume = false; this.fill.style.width = '0'; }
+    },
+    init() {
+        this.btn.onclick = () => this.set(this.mode === 'on' ? 'off' : 'on');
+        this.autoBtn.onclick = () => this.set(this.mode === 'auto' ? 'off' : 'auto');
+        this.audio.addEventListener('timeupdate', () => {
+            const d = this.audio.duration || 1;
+            this.fill.style.width = (this.audio.currentTime / d * 100) + '%';
+        });
+        this.audio.addEventListener('ended', () => {
+            if (this.mode !== 'auto') return;
+            if (deck.i >= deck.slides.length - 1) { this.set('off'); return; }
+            this.timer = setTimeout(() => { this.timer = null; deck.show(deck.i + 1); }, 1200);
+        });
+        document.addEventListener('keydown', e => {
+            if (deck.typing(e)) return;
+            if (e.key === 'p' || e.key === 'P') this.btn.click();
+            else if (e.key === 'a' || e.key === 'A') this.autoBtn.click();
+        });
+    }
+};
+window.narr = narr;
+
+/* ===========================================
+   10. INLINE EDITING (E key or the «تحرير» button)
+   Saves edited text in this browser only.
+   =========================================== */
+const editor = {
+    on: false,
+    els: [...document.querySelectorAll('[data-ed]')],
+    key: 'py-if-deck-edits',
+    load() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(this.key) || '{}');
+            this.els.forEach((el, i) => { if (saved[i] != null) el.innerHTML = saved[i]; });
+        } catch (e) {}
+    },
+    save() {
+        try {
+            const data = {}; this.els.forEach((el, i) => data[i] = el.innerHTML);
+            localStorage.setItem(this.key, JSON.stringify(data));
+        } catch (e) {}
+    },
+    toggle() {
+        this.on = !this.on;
+        document.body.classList.toggle('editing', this.on);
+        this.els.forEach(el => el.contentEditable = this.on ? 'true' : 'false');
+        document.getElementById('editBtn').classList.toggle('on', this.on);
+        document.getElementById('editBtn').textContent = this.on ? 'حفظ' : 'تحرير';
+        if (!this.on) this.save();
+    }
+};
+editor.load();
+document.getElementById('editBtn').onclick = () => editor.toggle();
+document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 's' && editor.on) { e.preventDefault(); editor.save(); } });
+
+const deck = new SlidePresentation();
+narr.init();
+</script>
+
+</body></html>
