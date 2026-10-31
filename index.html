@@ -303,6 +303,13 @@ body.focus .focus-exit { display: block; }
 .fs-tip { position: fixed; z-index: 1004; left: 50%; bottom: 16px; transform: translateX(-50%); max-width: min(520px, calc(100vw - 24px)); direction: rtl;
     background: rgba(9,26,30,.96); border: 1px solid var(--cond); border-radius: 14px; padding: 10px 14px; font: 13px/1.7 var(--font-body); color: var(--chalk); }
 .fs-tip[hidden] { display: none; }
+/* Tap-to-pause badge */
+.tap-badge { position: fixed; z-index: 1005; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.9); pointer-events: none; opacity: 0;
+    direction: rtl; display: flex; align-items: center; gap: 10px; background: rgba(9,26,30,.88); border: 1px solid var(--rule); border-radius: 999px;
+    padding: 10px 22px; font: 16px var(--font-body); color: var(--chalk); transition: opacity .25s, transform .25s; }
+.tap-badge b { font-size: 22px; color: var(--cond); }
+.tap-badge.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.tap-badge.paused { top: auto; bottom: 90px; }
 .deck-controls button, .deck-controls .count { white-space: nowrap; }
 .deck-controls .sep { width: 1px; height: 18px; background: var(--rule); margin-inline: 2px; }
 .deck-controls button.playing { background: rgba(90,209,154,.18); color: var(--true); }
@@ -910,6 +917,7 @@ else:
   <span class="narr-bar" aria-hidden="true"><i id="narrFill"></i></span>
   <button id="fsBtn" title="ملء الشاشة (F)">⛶ ملء الشاشة</button>
 </nav>
+<div class="tap-badge" id="tapBadge" aria-live="polite"></div>
 <button class="focus-exit" id="focusExit" aria-label="إظهار الأزرار">⤢ الأزرار</button>
 <div class="fs-tip" id="fsTip" role="status" hidden>لعرض الدرس بملء الشاشة تمامًا على الآيفون: اضغط زر المشاركة ⬆︎ ثم «إضافة إلى الشاشة الرئيسية»، وافتح الدرس من أيقونته.</div>
 <div class="rotate-tip" id="rotateTip" role="status">↻ أدِر جهازك أفقيًا لعرض أوضح <button type="button" aria-label="إخفاء">✕</button></div>
@@ -1356,6 +1364,30 @@ const deck = new SlidePresentation();
     window.dispatchEvent(new Event('resize'));
 })();
 narr.init();
+
+/* Tap anywhere on the slide (not on a control) to pause the narration; tap again to continue from the same spot */
+(() => {
+    const badge = document.getElementById('tapBadge');
+    let pausedMode = null, hideT = null;
+    const IGNORE = 'button, input, select, textarea, a, label, .ln, .opt, .light, .tg, .deck-controls, .notes, .focus-exit, .fs-tip, .rotate-tip, .check, .lab, svg.fc, .mq';
+    const flash = (html, stay) => {
+        clearTimeout(hideT);
+        badge.innerHTML = html; badge.classList.toggle('paused', !!stay); badge.classList.add('show');
+        if (!stay) hideT = setTimeout(() => badge.classList.remove('show'), 900);
+    };
+    // any manual use of the narration buttons cancels a tap-pause
+    ['narrBtn', 'autoBtn'].forEach(id => document.getElementById(id).addEventListener('click', () => { pausedMode = null; badge.classList.remove('show'); }));
+    document.addEventListener('click', e => {
+        if (e.target.closest(IGNORE) || window.getSelection().toString()) return;
+        if (narr.mode !== 'off') {
+            pausedMode = narr.mode; narr.set('off');
+            flash('<b>⏸</b> متوقف مؤقتًا · اضغط على الشاشة للمتابعة', true);
+        } else if (pausedMode) {
+            const m = pausedMode; pausedMode = null; narr.set(m);
+            flash('<b>▶</b> متابعة');
+        }
+    });
+})();
 </script>
 
 </body></html>
