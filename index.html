@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="theme-color" content="#071518"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>الجمل الشرطية في بايثون</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -295,6 +295,14 @@ svg.fc { width: 100%; height: auto; overflow: visible; }
     font-family: var(--font-body); font-size: 13px; color: var(--chalk); white-space: nowrap; }
 .rotate-tip button { font: inherit; color: var(--chalk-dim); background: transparent; border: 0; padding: 2px 8px; cursor: pointer; }
 @media (orientation: portrait) and (max-width: 700px) { .rotate-tip:not(.off) { display: flex; } }
+/* Focus mode (iPhone has no fullscreen API): hide the bar, slide fills the screen */
+body.focus .deck-controls, body.focus .progress, body.focus .rotate-tip, body.focus .notes { display: none !important; }
+.focus-exit { display: none; position: fixed; z-index: 1003; top: max(8px, env(safe-area-inset-top, 0px)); left: max(8px, env(safe-area-inset-left, 0px));
+    font: 16px var(--font-body); color: var(--chalk); background: rgba(9,26,30,.55); border: 1px solid var(--rule); border-radius: 999px; padding: 4px 12px; opacity: .55; cursor: pointer; }
+body.focus .focus-exit { display: block; }
+.fs-tip { position: fixed; z-index: 1004; left: 50%; bottom: 16px; transform: translateX(-50%); max-width: min(520px, calc(100vw - 24px)); direction: rtl;
+    background: rgba(9,26,30,.96); border: 1px solid var(--cond); border-radius: 14px; padding: 10px 14px; font: 13px/1.7 var(--font-body); color: var(--chalk); }
+.fs-tip[hidden] { display: none; }
 .deck-controls button, .deck-controls .count { white-space: nowrap; }
 .deck-controls .sep { width: 1px; height: 18px; background: var(--rule); margin-inline: 2px; }
 .deck-controls button.playing { background: rgba(90,209,154,.18); color: var(--true); }
@@ -902,6 +910,8 @@ else:
   <span class="narr-bar" aria-hidden="true"><i id="narrFill"></i></span>
   <button id="fsBtn" title="ملء الشاشة (F)">⛶ ملء الشاشة</button>
 </nav>
+<button class="focus-exit" id="focusExit" aria-label="إظهار الأزرار">⤢ الأزرار</button>
+<div class="fs-tip" id="fsTip" role="status" hidden>لعرض الدرس بملء الشاشة تمامًا على الآيفون: اضغط زر المشاركة ⬆︎ ثم «إضافة إلى الشاشة الرئيسية»، وافتح الدرس من أيقونته.</div>
 <div class="rotate-tip" id="rotateTip" role="status">↻ أدِر جهازك أفقيًا لعرض أوضح <button type="button" aria-label="إخفاء">✕</button></div>
 <audio id="narrAudio" preload="auto"></audio>
 
@@ -1153,7 +1163,7 @@ class SlidePresentation {
             // on phones/tablets keep the control bar below the slide instead of on top of it
             const nav = document.querySelector('.deck-controls');
             const small = window.innerWidth < 900 || window.innerHeight < 700;
-            const H = window.innerHeight - (small && nav ? nav.offsetHeight + 16 : 0);
+            const H = window.innerHeight - (small && nav && !document.body.classList.contains('focus') ? nav.offsetHeight + 16 : 0);
             const f = Math.min(window.innerWidth / 1920, H / 1080);
             this.stage.style.transform = `translate(${(window.innerWidth - 1920 * f) / 2}px, ${(H - 1080 * f) / 2}px) scale(${f})`;
         };
@@ -1314,7 +1324,22 @@ const deck = new SlidePresentation();
     const exit = document.exitFullscreen || document.webkitExitFullscreen;
     const cur = () => document.fullscreenElement || document.webkitFullscreenElement;
     const enabled = document.fullscreenEnabled || document.webkitFullscreenEnabled;
-    if (!req || !enabled) { btn.hidden = true; }
+    if (!req || !enabled) {
+        // iPhone Safari: no fullscreen API, so use focus mode (hide the bar, enlarge the slide)
+        const tipEl = document.getElementById('fsTip'), exitBtn = document.getElementById('focusExit');
+        const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+        let tipShown = false;
+        const setFocus = on => {
+            document.body.classList.toggle('focus', on);
+            window.dispatchEvent(new Event('resize'));
+            if (on && !standalone && !tipShown) { tipShown = true; tipEl.hidden = false; setTimeout(() => { tipEl.hidden = true; }, 7000); }
+            if (!on) tipEl.hidden = true;
+        };
+        btn.onclick = () => setFocus(true);
+        exitBtn.onclick = () => setFocus(false);
+        tipEl.onclick = () => { tipEl.hidden = true; };
+        document.addEventListener('keydown', e => { if ((e.key === 'f' || e.key === 'F') && !deck.typing(e)) setFocus(!document.body.classList.contains('focus')); });
+    }
     else {
         const toggle = () => { try { const r = cur() ? exit.call(document) : req.call(el); if (r && r.catch) r.catch(() => {}); } catch (e) {} };
         btn.onclick = toggle;
