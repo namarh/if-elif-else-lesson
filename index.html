@@ -884,7 +884,6 @@ else:
   <button id="nextBtn" aria-label="الشريحة التالية">التالي ←</button>
   <span class="score" id="score" title="إجابات صحيحة من المحاولة الأولى">✓ 0</span>
   <button id="notesBtn" title="ملاحظات المعلم (N)">ملاحظات</button>
-  <button id="editBtn" title="تحرير النصوص (E)">تحرير</button>
   <span class="sep" aria-hidden="true"></span>
   <button id="narrBtn" title="استمع لشرح هذه الشريحة بصوت المعلم (P)" aria-pressed="false">🔊 الشرح</button>
   <button id="autoBtn" title="تشغيل الشرح والانتقال بين الشرائح تلقائياً (A)" aria-pressed="false">▶ عرض تلقائي</button>
@@ -1151,7 +1150,6 @@ class SlidePresentation {
             else if (e.key === 'Home') this.show(0);
             else if (e.key === 'End') this.show(this.slides.length - 1);
             else if (e.key === 'n' || e.key === 'N') this.toggleNotes();
-            else if (e.key === 'e' || e.key === 'E') editor.toggle();
         });
         document.getElementById('nextBtn').onclick = () => this.show(this.i + 1);
         document.getElementById('prevBtn').onclick = () => this.show(this.i - 1);
@@ -1287,9 +1285,7 @@ const editor = {
         if (!this.on) this.save();
     }
 };
-editor.load();
-document.getElementById('editBtn').onclick = () => editor.toggle();
-document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 's' && editor.on) { e.preventDefault(); editor.save(); } });
+// Editing is disabled in the published version so students cannot change the slides.
 
 const deck = new SlidePresentation();
 narr.init();
