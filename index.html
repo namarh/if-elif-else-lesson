@@ -283,6 +283,18 @@ svg.fc { width: 100%; height: auto; overflow: visible; }
 .progress { position: fixed; top: env(safe-area-inset-top, 0px); right: 0; height: 4px; background: var(--cond); z-index: 1001; transition: width .4s var(--ease); }
 .notes { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); bottom: 76px; margin-inline: auto; max-width: 760px; z-index: 1000; direction: rtl; background: rgba(9,26,30,.95); border: 1px solid var(--cond); border-radius: 14px; padding: 14px 20px; font-family: var(--font-body); font-size: 15px; line-height: 1.7; color: var(--chalk); }
 .notes b { color: var(--cond); }
+/* ---- Mobile + fullscreen ---- */
+@media (max-width: 700px) {
+    .deck-controls { flex-wrap: wrap; justify-content: center; width: max-content; max-width: calc(100vw - 16px); border-radius: 18px; gap: 2px; bottom: 8px; padding: 4px 6px; }
+    .deck-controls button { font-size: 12px; padding: 5px 8px; }
+    .deck-controls .score, .deck-controls .sep { display: none; }
+}
+@media (max-height: 500px) { .deck-controls { bottom: 6px; padding: 3px 6px; } .deck-controls button { padding: 4px 9px; } }
+.rotate-tip { display: none; position: fixed; top: max(10px, env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 1002; direction: rtl;
+    align-items: center; gap: 10px; background: rgba(9,26,30,.95); border: 1px solid var(--cond); border-radius: 999px; padding: 6px 8px 6px 14px;
+    font-family: var(--font-body); font-size: 13px; color: var(--chalk); white-space: nowrap; }
+.rotate-tip button { font: inherit; color: var(--chalk-dim); background: transparent; border: 0; padding: 2px 8px; cursor: pointer; }
+@media (orientation: portrait) and (max-width: 700px) { .rotate-tip:not(.off) { display: flex; } }
 .deck-controls button, .deck-controls .count { white-space: nowrap; }
 .deck-controls .sep { width: 1px; height: 18px; background: var(--rule); margin-inline: 2px; }
 .deck-controls button.playing { background: rgba(90,209,154,.18); color: var(--true); }
@@ -888,7 +900,9 @@ else:
   <button id="narrBtn" title="استمع لشرح هذه الشريحة بصوت المعلم (P)" aria-pressed="false">🔊 الشرح</button>
   <button id="autoBtn" title="تشغيل الشرح والانتقال بين الشرائح تلقائياً (A)" aria-pressed="false">▶ عرض تلقائي</button>
   <span class="narr-bar" aria-hidden="true"><i id="narrFill"></i></span>
+  <button id="fsBtn" title="ملء الشاشة (F)">⛶ ملء الشاشة</button>
 </nav>
+<div class="rotate-tip" id="rotateTip" role="status">↻ أدِر جهازك أفقيًا لعرض أوضح <button type="button" aria-label="إخفاء">✕</button></div>
 <audio id="narrAudio" preload="auto"></audio>
 
 <script>
@@ -1136,8 +1150,12 @@ class SlidePresentation {
     }
     setupStageScale() {
         const scale = () => {
-            const f = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
-            this.stage.style.transform = `translate(${(window.innerWidth - 1920 * f) / 2}px, ${(window.innerHeight - 1080 * f) / 2}px) scale(${f})`;
+            // on phones/tablets keep the control bar below the slide instead of on top of it
+            const nav = document.querySelector('.deck-controls');
+            const small = window.innerWidth < 900 || window.innerHeight < 700;
+            const H = window.innerHeight - (small && nav ? nav.offsetHeight + 16 : 0);
+            const f = Math.min(window.innerWidth / 1920, H / 1080);
+            this.stage.style.transform = `translate(${(window.innerWidth - 1920 * f) / 2}px, ${(H - 1080 * f) / 2}px) scale(${f})`;
         };
         scale(); window.addEventListener('resize', scale);
     }
@@ -1288,6 +1306,30 @@ const editor = {
 // Editing is disabled in the published version so students cannot change the slides.
 
 const deck = new SlidePresentation();
+
+/* Fullscreen button (F key) + rotate tip for phones held upright */
+(() => {
+    const btn = document.getElementById('fsBtn'), el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    const cur = () => document.fullscreenElement || document.webkitFullscreenElement;
+    const enabled = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+    if (!req || !enabled) { btn.hidden = true; }
+    else {
+        const toggle = () => { try { const r = cur() ? exit.call(document) : req.call(el); if (r && r.catch) r.catch(() => {}); } catch (e) {} };
+        btn.onclick = toggle;
+        const sync = () => {
+            btn.textContent = cur() ? '⤡ إنهاء ملء الشاشة' : '⛶ ملء الشاشة';
+            if (cur() && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+            window.dispatchEvent(new Event('resize'));
+        };
+        document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync);
+        document.addEventListener('keydown', e => { if ((e.key === 'f' || e.key === 'F') && !deck.typing(e)) toggle(); });
+    }
+    const tip = document.getElementById('rotateTip');
+    tip.querySelector('button').onclick = () => tip.classList.add('off');
+    window.dispatchEvent(new Event('resize'));
+})();
 narr.init();
 </script>
 
