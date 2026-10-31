@@ -1373,7 +1373,7 @@ narr.init();
     const flash = (html, stay) => {
         clearTimeout(hideT);
         badge.innerHTML = html; badge.classList.toggle('paused', !!stay); badge.classList.add('show');
-        if (!stay) hideT = setTimeout(() => badge.classList.remove('show'), 900);
+        hideT = setTimeout(() => badge.classList.remove('show'), stay ? 3000 : 900);
     };
     // any manual use of the narration buttons cancels a tap-pause
     ['narrBtn', 'autoBtn'].forEach(id => document.getElementById(id).addEventListener('click', () => { pausedMode = null; badge.classList.remove('show'); }));
